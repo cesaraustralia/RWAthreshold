@@ -23,7 +23,7 @@ ui <- shinyUI(fluidPage(
       sliderInput("cerealvalue","Cereal market price ($/t)",200, 500, 300),
       sliderInput("yieldpot","Yield potential (t/ha)",1, 10, 3, step = 0.1),
       sliderInput("controldelay","Approximate time until GS50 (days)",10, 50, 30),
-      sliderInput("RWAobs","Observed RWA tillers (%)",1, 100, 10),
+      sliderInput("RWAobs","Observed RWA tillers (%)",0, 100, 0),
       ),
     
     #beginning of main section
