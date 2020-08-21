@@ -11,11 +11,10 @@ options(shiny.usecairo=T)
 ui <- shinyUI(fluidPage(
   
   #Add a title
-  titlePanel(HTML("Russian wheat aphid GS30 threshold calculator")),
-  
+  titlePanel(h3("Russian wheat aphid GS30 action threshold calculator"),
+             windowTitle = "Russian wheat aphid threshold calculator"),
   #This creates a layout with a left sidebar and main section
   sidebarLayout(
-    
     #beginning of sidebar section
     #usually includes inputs
     sidebarPanel(
@@ -29,7 +28,8 @@ ui <- shinyUI(fluidPage(
     #beginning of main section
     mainPanel(
       tableOutput("table"),
-      plotOutput("plot"))
+      plotOutput("plot")
+    )
   )
   
   #Close the UI definition
@@ -46,12 +46,12 @@ server <- shinyServer(function(input, output) {
   b = 0.021 # intrinsic growth rate of RWA tillers (1/d)
   
   vals <- reactiveValues(df = tibble(` `=c(
-    "Calculated GS30 intervention threshold (percent tillers with RWA):",
-    "Calculated loss without intervention ($/ha)",
-    "Estimated cost of control ($/ha)",
-    "Calculated benefit-cost ratio"), `  `=rep(0,4)))
+    "Calculated action threshold (percent tillers with RWA):",
+    "Calculated loss without intervention ($/ha):",
+    "Estimated cost of control ($/ha):",
+    "Calculated benefit-cost ratio:"), `  `=rep(0,4)))
   
-  output$plot = renderPlot(width = 500,height = 500,{
+  output$plot = renderPlot(width = 400,height = 400,{
     # make plot 
     nn=100
     d = tibble(Prop_tillers_w_RWA = seq(0, 0.4, length=nn)) %>%
@@ -78,7 +78,7 @@ server <- shinyServer(function(input, output) {
                     label = "RWA impact", color = pal[4], size=labelsize) +
   
       geom_vline(xintercept = 100*IT, alpha=0.5, color = pal[2]) +
-      annotate("text", x=100*IT-1, y=mean(d$RWAyieldloss[(nn/2):nn]), label = "intervention threshold", 
+      annotate("text", x=100*IT-1, y=mean(d$RWAyieldloss[(nn/2):nn]), label = "action threshold", 
                 color = pal[2], angle = 90, size=labelsize) +
       # geom_vline(xintercept = 100*ET, alpha=0.5, color = pal[4]) +
       # geom_text(aes(100*ET-1, 10, label = "economic threshold"), color = pal[4], angle = 90) +
@@ -86,6 +86,7 @@ server <- shinyServer(function(input, output) {
       geom_hline(yintercept = input$controlcost, alpha=0.5, color=pal[5]) +
       annotate("text", x=30, y=input$controlcost+2, label = "control cost", size=labelsize, color = pal[5]) +
       theme_bw() +
+      scale_x_continuous(breaks = seq(0,40,by=5)) +
       xlab("Tillers with Russian wheat aphid (%)") +
       ylab("Economic impact ($/ha)") + 
       theme(plot.title = element_text(face = "bold", size=20), 
