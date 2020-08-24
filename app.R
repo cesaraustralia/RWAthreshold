@@ -18,6 +18,7 @@ ui <- shinyUI(fluidPage(
     #beginning of sidebar section
     #usually includes inputs
     sidebarPanel(
+      HTML("<b>Calculator inputs:</b>"), HTML("<br><br>"),
       sliderInput("controlcost","Cost of control ($/ha)",10, 40, 20),
       sliderInput("cerealvalue","Cereal market price ($/t)",200, 500, 300),
       sliderInput("yieldpot","Yield potential (t/ha)",1, 10, 3, step = 0.1),
@@ -45,11 +46,11 @@ server <- shinyServer(function(input, output) {
   a = 0.28 # proportion decrease in yield per proportion RWA tiller
   b = 0.021 # intrinsic growth rate of RWA tillers (1/d)
   
-  vals <- reactiveValues(df = tibble(` `=c(
-    "Calculated action threshold (percent tillers with RWA):",
-    "Calculated loss without intervention ($/ha):",
-    "Estimated cost of control ($/ha):",
-    "Calculated benefit-cost ratio:"), `  `=rep(0,4)))
+  vals <- reactiveValues(df = tibble(`Calculator output values:`=c(
+    "Action threshold (percent tillers with RWA):",
+    "Yield loss without action based on current RWA (kg/ha):",
+    "Cost of no action based on current RWA ($/ha):",
+    "Benefit-cost ratio of action:"), `  `=rep(0,4)))
   
   output$plot = renderPlot(width = 400,height = 400,{
     # make plot 
@@ -61,13 +62,24 @@ server <- shinyServer(function(input, output) {
     ET = input$controlcost/input$cerealvalue/(a*input$yieldpot)
     IT = ET/exp(b*input$controldelay)
     
+    # function to calc losses from proportion TwRWA 
+    calc_loss = function(TwRWA) {
+      TwRWA*a*input$yieldpot*input$cerealvalue
+    }
+    
     # table output
     vals$df[1,2] = 100*IT                    # intervention threshold
-    vals$df[2,2] = (input$RWAobs/100*exp(b*input$controldelay))*
-      a*input$yieldpot*input$cerealvalue     # calc losses ($/ha)
-    vals$df[3,2] = input$controlcost         # control cost ($/ha)
-    vals$df[4,2] = vals$df[2,2]/vals$df[3,2] # benefit-cost
+    vals$df[2,2] = 1000*a*input$RWAobs/100*input$yieldpot  # calc losses (kg/ha)
+    vals$df[3,2] = calc_loss(input$RWAobs*exp(b*input$controldelay)/100) # calc losses ($/ha)
+    vals$df[4,2] = vals$df[3,2]/input$controlcost # benefit-cost
   
+    # observed and predicted RWA tillers
+    RWApred = input$RWAobs*exp(b*input$controldelay)
+    RWAobspred = tibble(
+      x = c(input$RWAobs, RWApred), 
+      y = c(calc_loss(input$RWAobs/100), calc_loss(RWApred/100)), 
+      key = c("observed RWA tillers (%)", "predicted RWA tillers at GS50 (%)"))
+    
     # plot
     pal = viridisLite::inferno(5, end = 0.8)
     labelsize =6
@@ -84,14 +96,20 @@ server <- shinyServer(function(input, output) {
       # geom_text(aes(100*ET-1, 10, label = "economic threshold"), color = pal[4], angle = 90) +
       # control cost
       geom_hline(yintercept = input$controlcost, alpha=0.5, color=pal[5]) +
-      annotate("text", x=30, y=input$controlcost+2, label = "control cost", size=labelsize, color = pal[5]) +
+      annotate("text", x=30, y=input$controlcost+3, label = "control cost ($/ha)", 
+               size=labelsize, color = pal[5]) +
+      geom_point(data=RWAobspred, aes(x, y, shape=key), size = 4) + 
+      geom_line( data=RWAobspred, aes(x, y), linetype=2, size = 1.5) + 
       theme_bw() +
-      scale_x_continuous(breaks = seq(0,40,by=5)) +
+      scale_x_continuous(breaks = seq(0,100,by=5)) +
       xlab("Tillers with Russian wheat aphid (%)") +
       ylab("Economic impact ($/ha)") + 
       theme(plot.title = element_text(face = "bold", size=20), 
             axis.title = element_text(size=16),
-            axis.text = element_text(size=12))
+            axis.text = element_text(size=12), 
+            legend.position = "bottom",  legend.direction="vertical")+
+      scale_shape_manual(values = c(1, 2)) +
+      guides(shape = guide_legend(""))
       
   })
   
