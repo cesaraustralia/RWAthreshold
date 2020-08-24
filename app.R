@@ -76,9 +76,10 @@ server <- shinyServer(function(input, output) {
     # observed and predicted RWA tillers
     RWApred = input$RWAobs*exp(b*input$controldelay)
     RWAobspred = tibble(
-      x = c(input$RWAobs, RWApred), 
-      y = c(calc_loss(input$RWAobs/100), calc_loss(RWApred/100)), 
-      key = c("observed RWA tillers (%)", "predicted RWA tillers at GS50 (%)"))
+      x = c(input$RWAobs, RWApred, IT*100), 
+      y = calc_loss(x/100),
+      key = paste(c("Observed RWA", "Predicted RWA at GS50 without action", "Action threshold"), "(% RWA tillers)"),) %>% 
+      filter(y > 0)
     
     # plot
     pal = viridisLite::inferno(5, end = 0.8)
@@ -89,17 +90,17 @@ server <- shinyServer(function(input, output) {
       annotate("text", 100*d$Prop_tillers_w_RWA[nn]-6, d$RWAyieldloss[nn],
                     label = "RWA impact", color = pal[4], size=labelsize) +
   
-      geom_vline(xintercept = 100*IT, alpha=0.5, color = pal[2]) +
-      annotate("text", x=100*IT-1, y=mean(d$RWAyieldloss[(nn/2):nn]), label = "action threshold", 
-                color = pal[2], angle = 90, size=labelsize) +
+      # geom_vline(xintercept = 100*IT, alpha=0.5, color = pal[2]) +
+      # annotate("text", x=100*IT-1, y=mean(d$RWAyieldloss[(nn/2):nn]), label = "action threshold", 
+      #           color = pal[2], angle = 90, size=labelsize) +
       # geom_vline(xintercept = 100*ET, alpha=0.5, color = pal[4]) +
       # geom_text(aes(100*ET-1, 10, label = "economic threshold"), color = pal[4], angle = 90) +
       # control cost
-      geom_hline(yintercept = input$controlcost, alpha=0.5, color=pal[5]) +
-      annotate("text", x=30, y=input$controlcost+3, label = "control cost ($/ha)", 
-               size=labelsize, color = pal[5]) +
+      # geom_hline(yintercept = input$controlcost, alpha=0.5, color=pal[5]) +
+      # annotate("text", x=30, y=input$controlcost+3, label = "control cost ($/ha)", 
+      #          size=labelsize, color = pal[5]) +
       geom_point(data=RWAobspred, aes(x, y, shape=key), size = 4) + 
-      geom_line( data=RWAobspred, aes(x, y), linetype=2, size = 1.5) + 
+      # geom_line( data=RWAobspred, aes(x, y), linetype=2, size = 1.5) + 
       theme_bw() +
       scale_x_continuous(breaks = seq(0,100,by=5)) +
       xlab("Tillers with Russian wheat aphid (%)") +
@@ -108,7 +109,7 @@ server <- shinyServer(function(input, output) {
             axis.title = element_text(size=16),
             axis.text = element_text(size=12), 
             legend.position = "bottom",  legend.direction="vertical")+
-      scale_shape_manual(values = c(1, 2)) +
+      scale_shape_manual(values = c(1, 2, 3, 4)) +
       guides(shape = guide_legend(""))
       
   })
