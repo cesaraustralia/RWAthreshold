@@ -11,7 +11,7 @@ options(shiny.usecairo=T)
 ui <- shinyUI(fluidPage(
   
   #Add a title
-  titlePanel(h3("Russian wheat aphid GS30 action threshold calculator"),
+  titlePanel(h3(""),
              windowTitle = "Russian wheat aphid threshold calculator"),
   #This creates a layout with a left sidebar and main section
   sidebarLayout(
@@ -19,11 +19,11 @@ ui <- shinyUI(fluidPage(
     #usually includes inputs
     sidebarPanel(
       HTML("<b>Calculator inputs:</b>"), HTML("<br><br>"),
-      sliderInput("controlcost","Cost of control ($/ha)",10, 40, 20),
-      sliderInput("cerealvalue","Cereal market price ($/t)",200, 500, 300),
-      sliderInput("yieldpot","Yield potential (t/ha)",1, 10, 3, step = 0.1),
-      sliderInput("controldelay","Approximate time until GS50 (days)",10, 50, 30),
-      sliderInput("RWAobs","Observed RWA tillers (%)",0, 100, 0),
+      sliderInput("controlcost","Cost of control ($/ha)",10, 60, 20),
+      sliderInput("cerealvalue","Cereal market price ($/t)",50, 500, 300),
+      sliderInput("yieldpot","Yield potential (t/ha)",1, 11, 3, step = 0.1),
+      sliderInput("controldelay","Approximate time until GS50 (days)",10, 70, 30),
+      sliderInput("RWAobs","Observed tillers with RWA (%)",0, 50, 0),
       ),
     
     #beginning of main section
@@ -54,9 +54,6 @@ server <- shinyServer(function(input, output) {
   
   output$plot = renderPlot(width = 400,height = 400,{
     # make plot 
-    nn=100
-    d = tibble(Prop_tillers_w_RWA = seq(0, 0.4, length=nn)) %>%
-      mutate(RWAyieldloss = a*Prop_tillers_w_RWA*input$yieldpot*input$cerealvalue) 
     
     # economic threshold
     ET = input$controlcost/input$cerealvalue/(a*input$yieldpot)
@@ -76,19 +73,32 @@ server <- shinyServer(function(input, output) {
     # observed and predicted RWA tillers
     RWApred = input$RWAobs*exp(b*input$controldelay)
     RWAobspred = tibble(
-      x = c(input$RWAobs, RWApred, IT*100), 
+      x = c(input$RWAobs, RWApred, IT*100, ET*100), 
       y = calc_loss(x/100),
-      key = paste(c("Observed RWA", "Predicted RWA at GS50 without action", "Action threshold"), "(% RWA tillers)"),) %>% 
-      filter(y > 0)
+      key = c("Observed RWA", "Predicted RWA at GS50 without action", 
+              "Action threshold", "Economic injury level")) %>% 
+      filter(y > 0) %>% 
+      arrange(key)
+    
+    # economic injury region
+    EIL = tibble(
+      xmin = c(0, 0),
+      xmax = c(max(40, RWAobspred$x), ET*100),
+      ymin = c(0, 0),
+      ymax = calc_loss(xmax/100),
+      EIL = c("impact > control cost", "impact < control cost")
+      ) 
     
     # plot
     pal = viridisLite::inferno(5, end = 0.8)
-    labelsize =6
-    ggplot(d) + 
+    labelsize = 6
+    ggplot() + 
+      geom_rect(data=EIL, aes(xmin=xmin,ymin=ymin,xmax=xmax,ymax=ymax, fill=EIL)) +
       # RWA damage
-      geom_line(aes(100*Prop_tillers_w_RWA, RWAyieldloss), color = pal[4]) + 
-      annotate("text", 100*d$Prop_tillers_w_RWA[nn]-6, d$RWAyieldloss[nn],
-                    label = "RWA impact", color = pal[4], size=labelsize) +
+      geom_abline(slope= a*input$yieldpot*input$cerealvalue/100, intercept=0, linetype=2) +
+      # geom_line(aes(100*Prop_tillers_w_RWA, RWAyieldloss), linetype=2) + 
+      annotate("text", 1.5*RWAobspred$x[2]+2, 1.5*RWAobspred$y[2],hjust=0,
+                    label = "RWA impact line", size=labelsize) +
   
       # geom_vline(xintercept = 100*IT, alpha=0.5, color = pal[2]) +
       # annotate("text", x=100*IT-1, y=mean(d$RWAyieldloss[(nn/2):nn]), label = "action threshold", 
@@ -102,15 +112,17 @@ server <- shinyServer(function(input, output) {
       geom_point(data=RWAobspred, aes(x, y, shape=key), size = 4) + 
       # geom_line( data=RWAobspred, aes(x, y), linetype=2, size = 1.5) + 
       theme_bw() +
-      scale_x_continuous(breaks = seq(0,100,by=5)) +
+      scale_fill_manual(values = c("#c2ffa1", "#ff6047")) +
+      scale_x_continuous(expand=c(0,0), breaks = seq(0,100,by=5)) +
+      scale_y_continuous(expand=c(0,0)) +
       xlab("Tillers with Russian wheat aphid (%)") +
       ylab("Economic impact ($/ha)") + 
       theme(plot.title = element_text(face = "bold", size=20), 
             axis.title = element_text(size=16),
-            axis.text = element_text(size=12), 
+            axis.text = element_text(size=12), plot.margin = margin(1, 2, 1, 1, "cm"),
             legend.position = "bottom",  legend.direction="vertical")+
       scale_shape_manual(values = c(1, 2, 3, 4)) +
-      guides(shape = guide_legend(""))
+      guides(shape = guide_legend(""), fill = guide_legend(""))
       
   })
   
